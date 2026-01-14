@@ -5,16 +5,18 @@ from tqdm import tqdm #only for visual
 import sys
 
 
-def tokenizeData(tokenizerName):
+def tokenizeData(tokenizerName, outputFolderName='temp'):
     tokenizer = REMI(params=Path(TOKENIZER_PATH / tokenizerName))
-    Path(OUT_DIR).mkdir(parents=True, exist_ok=True)
+    out_path_folder = OUT_DIR / outputFolderName
+    Path(out_path_folder).mkdir(parents=True, exist_ok=True)
 
-    midi_files = Path(MIDI_DATA_DIR).glob("**/*.mid")
-    # print(len(midi_files))
+    midi_files = Path(MIDI_DATA_DIR).glob("**/*.midi")
+
     count = 0
     for midi_path in tqdm(midi_files):
         tokens = tokenizer(midi_path)
-        out_path = Path(OUT_DIR, midi_path.stem + ".json")
+        out_path = Path(out_path_folder, midi_path.stem + ".json")
+
         tokenizer.save_tokens(tokens, out_path)
         count+=1
         if count == 5:
