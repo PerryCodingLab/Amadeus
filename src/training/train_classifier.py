@@ -50,7 +50,7 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     all_preds = []
     all_labels = []
 
-    for batch_idx (data, target) in enumerate(dataloader):
+    for batch_idx, (data, target) in enumerate(dataloader):
         data, target = data.to(device), target.to(device)
         # 1. Zero Gradients
         optimizer.zero_grad()
@@ -105,9 +105,7 @@ if __name__ == "__main__":
     val_loader = DataLoader(val_dataset, batch_size=CONFIG['batch_size'], shuffle=False)
     # 2. Initialize Model
     model = MusicGenreClassifier(vocab_size=CONFIG['vocab_size'],
-                                num_classes=CONFIG['num_classes'],
-                                d_model=CONFIG['d_model'],
-                                num_layers=4, nheads=4).to(CONFIG['device'])
+                                num_classes=CONFIG['num_classes']).to(CONFIG['device'])
     
     # 3. Define Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
