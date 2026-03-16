@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 # Import your model
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from models.classifier import MusicTransformerClassifier
+from models.GenreClassifier import MusicGenreClassifier
 
 # --- Dataset Placeholder (Replace with real data later) ---
 class DummyGenreDataset(Dataset):
@@ -38,10 +38,10 @@ def objective(trial):
     nhead = trial.suggest_categorical('nhead', [2, 4, 8])          # Baseline is 4 
     num_layers = trial.suggest_int('num_layers', 2, 6)             # Baseline is 2-4 
     dropout = trial.suggest_float('dropout', 0.1, 0.4, step=0.1)
-    lr = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True) # [cite: 86]
+    lr = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)
 
     # Initialize model with these specific suggestions
-    model = MusicTransformerClassifier(
+    model = MusicGenreClassifier(
         vocab_size=300, 
         num_classes=4, 
         d_model=d_model, 
@@ -50,12 +50,12 @@ def objective(trial):
         dropout=dropout
     ).to(device)
 
-    criterion = nn.CrossEntropyLoss() # [cite: 85]
-    optimizer = optim.AdamW(model.parameters(), lr=lr) # [cite: 86]
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=lr)
 
     # Load Data (using a smaller batch size to prevent memory errors during tests)
     dataset = DummyGenreDataset()
-    train_size = int(0.8 * len(dataset)) # [cite: 88]
+    train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_set, val_set = torch.utils.data.random_split(dataset, [train_size, val_size])
     
