@@ -6,3 +6,5 @@ transformers
 
 psutil
 fluidsynth
+
+optuna

@@ -1,7 +1,7 @@
 from miditok import REMI
 from pathlib import Path
 from processing.MidiDataSet import getMidiByMetaData
-from configs.config import TOKENIZER_PATH, MIDI_DATA_DIR, OUT_DIR
+from src.config import TOKENIZER_PATH, MIDI_DATA_DIR, OUT_DIR
 from tqdm import tqdm #only for visual
 import sys
 

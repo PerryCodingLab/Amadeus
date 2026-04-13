@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from models.GenreClassifier import MusicGenreClassifier
-
+from training.train_classifier import GenreDataset
+from tqdm import tqdm
 # --- Dataset Placeholder (Replace with real data later) ---
 class DummyGenreDataset(Dataset):
     def __init__(self, num_samples=500, seq_len=512):
@@ -43,7 +44,7 @@ def objective(trial):
     # Initialize model with these specific suggestions
     model = MusicGenreClassifier(
         vocab_size=300, 
-        num_classes=4, 
+        num_classes=32, 
         d_model=d_model, 
         nhead=nhead, 
         num_layers=num_layers, 
@@ -54,10 +55,8 @@ def objective(trial):
     optimizer = optim.AdamW(model.parameters(), lr=lr)
 
     # Load Data (using a smaller batch size to prevent memory errors during tests)
-    dataset = DummyGenreDataset()
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_set, val_set = torch.utils.data.random_split(dataset, [train_size, val_size])
+    train_set = GenreDataset("Data/ProccessedData/train_tokens.pt","Data/ProccessedData/train_labels.pt")
+    val_set = GenreDataset("Data/ProccessedData/test_tokens.pt","Data/ProccessedData/test_labels.pt")
     
     train_loader = DataLoader(train_set, batch_size=16, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=16, shuffle=False)
@@ -67,9 +66,11 @@ def objective(trial):
     best_acc = 0.0
 
     for epoch in range(epochs):
+        print("trial:", trial.number, ", Epoch: ",epoch)
+        sys.stdout.flush()
         model.train()
         for data, target in train_loader:
-            data, target = data.to(device), target.to(device)
+            data, target = data.to(device), target.squeeze(-1).to(device)
             optimizer.zero_grad()
             logits = model(data)
             loss = criterion(logits, target)
@@ -91,10 +92,13 @@ def objective(trial):
         best_acc = max(best_acc, acc)
 
         # Tell Optuna how we are doing. If the score is terrible, Optuna can "prune" (kill) the trial early.
+        print("trial:", trial.number, ", Epoch: ",epoch ,", acc:",acc)
+        sys.stdout.flush()
         trial.report(acc, epoch)
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
-
+    print("parameters: ",d_model, nhead,num_layers,dropout,lr)
+    sys.stdout.flush()
     return best_acc
 
 def save_visual_reports(study):
@@ -131,9 +135,9 @@ if __name__ == "__main__":
     print("Starting Architecture Tuning with Optuna...")
     # Create an Optuna study. We want to 'maximize' the accuracy.
     study = optuna.create_study(direction="maximize")
-    
+    print("optimizing: ")
     # Run 10 different architectural trials (increase to 50+ when using real data)
-    study.optimize(objective, n_trials=10)
+    study.optimize(objective, n_trials=2)
 
     print("\n=== TUNING COMPLETE ===")
     print(f"Best Accuracy: {study.best_value:.4f}")

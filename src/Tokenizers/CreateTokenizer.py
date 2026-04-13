@@ -1,6 +1,6 @@
 from miditok import REMI, TokenizerConfig
 from pathlib import Path
-from configs.config import TOKENIZER_PATH, TOKENIZER_PARAMS 
+from src.config import TOKENIZER_PATH, TOKENIZER_PARAMS 
 import sys
 
 
