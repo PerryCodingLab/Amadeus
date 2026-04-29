@@ -1,0 +1,10 @@
+pathlib
+numpy<2
+pretty_midi
+music21
+transformers
+
+psutil
+fluidsynth
+
+optuna
