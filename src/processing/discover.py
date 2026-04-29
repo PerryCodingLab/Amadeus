@@ -289,6 +289,152 @@ def merge_and_split_dataset(name):
     
     print("Done! You can now safely delete the individual 'part_X' files if you want.")
 
+def saveTokensNoLabels(preprocessed_tokens, name):
+    torch.save(preprocessed_tokens, f"Data/ProccessedData/{name}_train_tokens.pt")
+    # X_train, X_test = train_test_split(
+    #     preprocessed_tokens, test_size=0.2, random_state=42
+    # )
+
+    # torch.save(X_train, f"Data/ProccessedData/{name}_train_tokens.pt")
+    # torch.save(X_test, f"Data/ProccessedData/{name}_test_tokens.pt")
+
+
+
+
+
+def tokenize_and_save_locally(midi_folder_path, output_vocab_path, name, tokenizerName):
+    """Runs locally to convert MIDI to integers and save to disk."""
+    # 1. Initialize tokenizer
+    tokenizer_save_path = Path(f"{output_vocab_path}/{tokenizerName}.json")
+    if tokenizer_save_path.exists():
+        tokenizer = REMI(params= tokenizer_save_path)
+        print("using saved tokenizer at: ", str(tokenizer_save_path))
+    else:
+        config = TokenizerConfig(num_velocities=16, use_chords=True, use_rests=True)
+        tokenizer = REMI(config)
+        
+
+    all_midi_paths = []
+    def stream_midi_files(folders):
+        for folder in folders:
+            # Path.glob() yields files one by one dynamically
+            for path in Path(folder).resolve().glob('**/*.mid'):
+                yield path
+    # for i in midi_folder_path:
+        # midi_paths = list(Path(i).resolve().glob('**/*.mid'))
+    #     all_midi_paths.extend(midi_paths)
+
+        # print("Batch size: ", len(midi_paths))
+        # print([str(s) for s in midi_paths])
+    print(f"Total files found: {len(all_midi_paths)}")
+    
+    def chunk_tokens(tokens, max_len=1024):
+        """Slices a flat list of tokens into chunks of max_len."""
+        chunks = [tokens[i : i + max_len] for i in range(0, len(tokens), max_len)]
+        # Only keep chunks that are EXACTLY 1024 tokens long
+        return [c for c in chunks if len(c) == max_len]
+    
+    batch_size = 1000
+    current_batch_sequences = []
+    processed_log = "processed_midi_log.txt"
+    # 1. Load the list of already processed files so we can resume
+    processed_files = set()
+    if os.path.exists(processed_log):
+        with open(processed_log, 'r', encoding='utf-8') as f:
+            processed_files = set(f.read().splitlines())
+
+    print(f"Skipping {len(processed_files)} previously processed files...")
+
+    batch_index = len(processed_files) // batch_size
+    files_in_current_batch = 0
+
+    # print(f"Found {len(midi_paths)} MIDI files. Tokenizing...")
+
+
+    # Create a new list to hold the successful file paths in RAM
+    current_batch_paths = []
+    # 2. Tokenize
+    for path in stream_midi_files(midi_folder_path):
+        path_str = str(path)
+        if path_str in processed_files:
+            continue
+        try:
+            tokenized_midi = tokenizer(path)
+            if isinstance(tokenized_midi, list): 
+                for track in tokenized_midi:
+                    if len(track.ids) > 0:
+                        current_batch_sequences.extend(chunk_tokens(track.ids))
+            else:
+                if len(tokenized_midi.ids) > 0:
+                    current_batch_sequences.extend(chunk_tokens(tokenized_midi.ids))
+            
+            current_batch_paths.append(path_str)
+            files_in_current_batch += 1
+
+            #saving a batch
+            if files_in_current_batch >= batch_size:
+                batch_name = f"{name}/part_{batch_index}"
+                saveTokensNoLabels(current_batch_sequences, batch_name)
+                print(f"Saved {batch_name}!")
+                with open(processed_log, 'a', encoding='utf-8') as log_file:
+                    log_file.write('\n'.join(current_batch_paths) + '\n')
+                # Reset the list to free up RAM for the next batch
+                current_batch_paths = []
+                current_batch_sequences = []
+                files_in_current_batch = 0
+                batch_index += 1
+                # tokenizer.save(output_vocab_path, filename= tokenizerName)
+
+        except Exception as e:
+            print(f"Could not parse {path}: {e}")
+
+
+
+    if len(current_batch_sequences) > 0:
+        batch_name = f"{name}/part_{batch_index}"
+        saveTokensNoLabels(current_batch_sequences, batch_name)
+        print(f"Saved final batch: {batch_name}!")
+        if current_batch_paths: # Make sure the list isn't empty
+            with open(processed_log, 'a', encoding='utf-8') as log_file:
+                log_file.write('\n'.join(current_batch_paths) + '\n')
+ 
+    # 3. Export the sequences to JSON
+    # with open(output_data_path, 'w') as f:
+    #     json.dump(all_token_sequences, f)
+        
+    # 4. Export the tokenizer configuration
+    tokenizer.save(output_vocab_path)
+    
+    print(f"✅ Saved {len(current_batch_sequences)} sequences")
+    print(f"✅ Saved tokenizer params to {output_vocab_path}")
+
+
+def merge_and_split_dataset(name):
+    print("Finding all batch files...")
+    # Find all the part files we saved overnight
+    batch_files = glob.glob(f"Data/ProccessedData/{name}/part_*_train_tokens.pt")
+    
+    all_tokens = []
+    
+    print(f"Loading and merging {len(batch_files)} batches...")
+    for file in batch_files:
+        # Load the batch and add it to our master list
+        batch_data = torch.load(file)
+        all_tokens.extend(batch_data)
+        
+    # print(f"Total sequences loaded: {len(all_tokens)}. Splitting data...")
+    
+    # # Do ONE global split on the entire dataset
+    # X_train, X_test = train_test_split(
+    #     all_tokens, test_size=0.2, random_state=42
+    # )
+
+    print("Saving final datasets...")
+    torch.save(all_tokens, f"Data/ProccessedData/{name}_FINAL_tokens.pt")
+    # torch.save(X_test, f"Data/ProccessedData/{name}_FINAL_test_tokens.pt")
+    
+    print("Done! You can now safely delete the individual 'part_X' files if you want.")
+
 if __name__ == "__main__":
     choice = int(input("if tokenizing with genre labels press 0, for prediction press 2: "))
     # choice = 2
